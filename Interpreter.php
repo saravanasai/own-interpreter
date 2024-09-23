@@ -11,12 +11,14 @@ enum TOKEN: string
     case PRINT = 'PRINT';
 
     case STRING = 'STRING';
+    case NUMBER = 'NUMBER';
 }
 
 enum TOKEN_TYPE
 {
     case PRINTABLE;
     case VARIABLE;
+    case MEASURABLE;
 }
 
 
@@ -51,14 +53,23 @@ class TokenStreams
             TOKEN::EXIT->value => TOKEN::EXIT,
             TOKEN::POP->value => TOKEN::POP,
             TOKEN::PUSH->value => TOKEN::PUSH,
+            TOKEN::SUM->value => TOKEN::SUM,
+            TOKEN::NUMBER->value=> TOKEN::NUMBER
         };
     }
 
+    public static function makeVariableToken(string $token)
+    {
+        return new TokenStreams(TOKEN::STRING, TOKEN_TYPE::VARIABLE, $token);
+    }
     public static function makeStringToken(string $token)
     {
         return new TokenStreams(TOKEN::STRING, TOKEN_TYPE::PRINTABLE, $token);
     }
 
+    public static function makeNumericToken(string $token){
+        return new TokenStreams(TOKEN::NUMBER, TOKEN_TYPE::MEASURABLE, $token);
+    }
     public static function getTokenType(string $token): TOKEN_TYPE
     {
         return self::isVariable($token) ? TOKEN_TYPE::VARIABLE : TOKEN_TYPE::PRINTABLE;
@@ -94,7 +105,12 @@ class Tokenizer
 
         if ($this->isVariable($token)) {
             $this->map[$token] = 0;
-        } else {
+            $this->tokens[] = TokenStreams::makeVariableToken($token);
+        }
+        else if(is_numeric($token)){
+            $this->tokens[] = TokenStreams::makeNumericToken($token);
+        }
+        else {
             $this->tokens[] = TokenStreams::makeStringToken($token);
         }
     }
@@ -176,14 +192,19 @@ class Interpreter
 
     public int $programCounter = 0;
     public Tokenizer $tokenizer;
+    public  SplStack $stack;
 
     public function __construct(Tokenizer $tokenizer)
     {
         $this->tokenizer = $tokenizer;
+        $this->stack = new SplStack();
     }
 
-    public function execute()
+    public function execute(): void
     {
+//        var_export($this->tokenizer->tokens);
+//        echo "map===\n";
+//        var_export($this->tokenizer->map);
 
         while (TOKEN::EXIT != $this->tokenizer->tokens[$this->programCounter]->token) {
 
@@ -192,17 +213,31 @@ class Interpreter
 
             if ($opCode == TOKEN::PRINT) {
 
-                $instrcution = $this->tokenizer->tokens[$this->programCounter];
-
-                if ($instrcution->tokenType == TOKEN_TYPE::PRINTABLE) {
-                    echo "\n" . $instrcution->tokenValue . "\n";
+                $instruction = $this->tokenizer->tokens[$this->programCounter];
+                if ($instruction->tokenType == TOKEN_TYPE::PRINTABLE) {
+                    echo $instruction->tokenValue . "\n";
                 }
 
-                if ($instrcution->tokenType == TOKEN_TYPE::VARIABLE) {
-                    $val = $this->tokenizer->map[$instrcution->token];
-                    echo "\n" . $val . "\n";
+                if ($instruction->tokenType == TOKEN_TYPE::VARIABLE) {
+                    $val = $this->tokenizer->map[$instruction->tokenValue];
+                    echo $val . "\n";
                 }
 
+                $this->programCounter++;
+            }
+
+            if($opCode == TOKEN::PUSH){
+                $this->stack->push($this->tokenizer->tokens[$this->programCounter]->tokenValue);
+                $this->programCounter++;
+            }
+
+            if($opCode == TOKEN::SUM){
+                $token = $this->tokenizer->tokens[$this->programCounter];
+//                var_export($token);
+                $operandOne = $this->stack->pop();
+                $operandTwo = $this->stack->pop();
+                $sum = $operandOne + $operandTwo;
+                $this->tokenizer->map[$token->tokenValue] = $sum;
                 $this->programCounter++;
             }
         }
