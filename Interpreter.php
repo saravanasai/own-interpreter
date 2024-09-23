@@ -33,9 +33,8 @@ class TokenStreams
         $this->tokenValue = $tokenValue;
     }
 
-    public static function makeToken(string $token)
+    public static function makeToken(string $token): TokenStreams
     {
-
         $enumToken = self::getToken($token);
         $tokenType = self::getTokenType($token);
         return new TokenStreams($enumToken, $tokenType);
@@ -63,7 +62,6 @@ class TokenStreams
     {
         return new TokenStreams(TOKEN::STRING, TOKEN_TYPE::PRINTABLE, $token);
     }
-
     public static function makeNumericToken(string $token): TokenStreams
     {
         return new TokenStreams(TOKEN::NUMBER, TOKEN_TYPE::MEASURABLE, $token);
@@ -82,7 +80,6 @@ class TokenStreams
 class Tokenizer
 {
     public array $tokens;
-
     public array $map;
     public int $tokenCounter;
 
@@ -128,15 +125,14 @@ class Tokenizer
             TOKEN::READ->value,
             TOKEN::SUB->value
         ];
-
         return in_array($value, $tokens);
     }
 }
 
 class Parser
 {
-    private $file;
-    private $tokens;
+    private  $file;
+    private array $tokens;
 
     public function __construct($file)
     {
@@ -184,9 +180,6 @@ class Interpreter
 
     public function execute(): void
     {
-//        var_export($this->tokenizer->tokens);
-//        echo "map===\n";
-//        var_export($this->tokenizer->map);
 
         while (TOKEN::EXIT != $this->tokenizer->tokens[$this->programCounter]->token) {
 
