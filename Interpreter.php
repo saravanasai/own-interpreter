@@ -1,6 +1,5 @@
 <?php
 
-
 enum TOKEN: string
 {
     case PUSH = 'PUSH';
@@ -9,7 +8,7 @@ enum TOKEN: string
     case SUB = 'SUB';
     case EXIT = 'EXIT';
     case PRINT = 'PRINT';
-
+    case READ = 'READ';
     case STRING = 'STRING';
     case NUMBER = 'NUMBER';
 }
@@ -21,14 +20,11 @@ enum TOKEN_TYPE
     case MEASURABLE;
 }
 
-
 class TokenStreams
 {
-
     public TOKEN $token;
     public TOKEN_TYPE $tokenType;
     public ?string $tokenValue;
-
 
     public function __construct(TOKEN $token, TOKEN_TYPE $tokenType, string $tokenValue = null)
     {
@@ -47,27 +43,29 @@ class TokenStreams
 
     public static function getToken(string $token): TOKEN
     {
-
         return match ($token) {
             TOKEN::PRINT->value => TOKEN::PRINT,
             TOKEN::EXIT->value => TOKEN::EXIT,
             TOKEN::POP->value => TOKEN::POP,
             TOKEN::PUSH->value => TOKEN::PUSH,
             TOKEN::SUM->value => TOKEN::SUM,
-            TOKEN::NUMBER->value=> TOKEN::NUMBER
+            TOKEN::SUB->value => TOKEN::SUB,
+            TOKEN::NUMBER->value=> TOKEN::NUMBER,
+            TOKEN::READ->value => TOKEN::READ
         };
     }
 
-    public static function makeVariableToken(string $token)
+    public static function makeVariableToken(string $token): TokenStreams
     {
         return new TokenStreams(TOKEN::STRING, TOKEN_TYPE::VARIABLE, $token);
     }
-    public static function makeStringToken(string $token)
+    public static function makeStringToken(string $token): TokenStreams
     {
         return new TokenStreams(TOKEN::STRING, TOKEN_TYPE::PRINTABLE, $token);
     }
 
-    public static function makeNumericToken(string $token){
+    public static function makeNumericToken(string $token): TokenStreams
+    {
         return new TokenStreams(TOKEN::NUMBER, TOKEN_TYPE::MEASURABLE, $token);
     }
     public static function getTokenType(string $token): TOKEN_TYPE
@@ -77,7 +75,7 @@ class TokenStreams
 
     public static function isVariable(string $value): bool
     {
-        return strpos($value, '#') === 0;
+        return str_starts_with($value, '#');
     }
 }
 
@@ -102,7 +100,6 @@ class Tokenizer
             $this->tokenCounter++;
             return;
         }
-
         if ($this->isVariable($token)) {
             $this->map[$token] = 0;
             $this->tokens[] = TokenStreams::makeVariableToken($token);
@@ -117,7 +114,7 @@ class Tokenizer
 
     public function isVariable(string $value)
     {
-        return strpos($value, '#') === 0;
+        return str_starts_with($value, '#');
     }
     public static function isValidToken(string $value): bool
     {
@@ -127,7 +124,9 @@ class Tokenizer
             TOKEN::SUM->value,
             TOKEN::SUB->value,
             TOKEN::EXIT->value,
-            TOKEN::PRINT->value
+            TOKEN::PRINT->value,
+            TOKEN::READ->value,
+            TOKEN::SUB->value
         ];
 
         return in_array($value, $tokens);
@@ -145,7 +144,7 @@ class Parser
         $this->tokens = [];
     }
 
-    public function parse()
+    public function parse(): array
     {
         $handle = fopen($this->file, 'r');
         if (!$handle) {
@@ -160,7 +159,7 @@ class Parser
         return $this->tokens;
     }
 
-    private function parseLine($line)
+    private function parseLine($line): void
     {
         $line = trim($line);
         $tokens = explode(' ', $line);
@@ -169,23 +168,6 @@ class Parser
         }
     }
 }
-
-//parser logic 
-
-if (empty($argv[1])) {
-    echo "Please pass the file name";
-}
-
-$parser = new Parser($argv[1]);
-
-$parsedTokens = $parser->parse();
-
-$tokenizer = new Tokenizer();
-
-foreach ($parsedTokens as $token) {
-    $tokenizer->tokenize($token);
-}
-
 
 class Interpreter
 {
@@ -210,19 +192,15 @@ class Interpreter
 
             $opCode = $this->tokenizer->tokens[$this->programCounter]->token;
             $this->programCounter++;
-
             if ($opCode == TOKEN::PRINT) {
-
                 $instruction = $this->tokenizer->tokens[$this->programCounter];
                 if ($instruction->tokenType == TOKEN_TYPE::PRINTABLE) {
                     echo $instruction->tokenValue . "\n";
                 }
-
                 if ($instruction->tokenType == TOKEN_TYPE::VARIABLE) {
                     $val = $this->tokenizer->map[$instruction->tokenValue];
                     echo $val . "\n";
                 }
-
                 $this->programCounter++;
             }
 
@@ -233,15 +211,42 @@ class Interpreter
 
             if($opCode == TOKEN::SUM){
                 $token = $this->tokenizer->tokens[$this->programCounter];
-//                var_export($token);
                 $operandOne = $this->stack->pop();
                 $operandTwo = $this->stack->pop();
                 $sum = $operandOne + $operandTwo;
                 $this->tokenizer->map[$token->tokenValue] = $sum;
                 $this->programCounter++;
             }
+            if($opCode == TOKEN::SUB){
+                $token = $this->tokenizer->tokens[$this->programCounter];
+                $operandOne = $this->stack->pop();
+                $operandTwo = $this->stack->pop();
+                $sum = $operandTwo - $operandOne;
+                $this->tokenizer->map[$token->tokenValue] = $sum;
+                $this->programCounter++;
+            }
+            if($opCode == TOKEN::READ){
+                $value = (int)trim(fgets(STDIN));
+                $this->stack->push($value);
+            }
         }
     }
+}
+
+//parser logic
+if (!$argv[1]) {
+    echo "Please pass the file name";
+    return;
+}
+
+$parser = new Parser($argv[1]);
+
+$parsedTokens = $parser->parse();
+
+$tokenizer = new Tokenizer();
+
+foreach ($parsedTokens as $token) {
+    $tokenizer->tokenize($token);
 }
 
 $interpreter = new Interpreter($tokenizer);

@@ -1,10 +1,7 @@
-PUSH 10
-PUSH 30
+PRINT Type-number-one
+READ
+PRINT Type-number-two
+READ
 SUM #total
 PRINT #total
-PUSH 60
-PUSH 30
-SUM #secondTotal
-PRINT #secondTotal
-PRINT hello-world
 EXIT
